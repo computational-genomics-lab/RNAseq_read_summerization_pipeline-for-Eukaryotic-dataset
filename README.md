@@ -17,8 +17,7 @@ Modify the given path of the input and output files written in the snakemake fil
 
 1. Snakemake
 2. bbduk
-3. bowtie
-4. samtools
+3. STAR
 5. featurecounts
 
 # command to run the pipeline
