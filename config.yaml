@@ -1,0 +1,26 @@
+workdir: "/home/sutripa/rnaseq_pipeline"
+
+reference: "/home/sutripa/rnaseq_pipeline/MLA_UU774new1.fna"
+annotation: "/home/sutripa/rnaseq_pipeline/genomic.gff"
+adapters: "/home/sutripa/Tools/adapters.fasta.gz"
+
+samples:
+  - "6_A_"
+  - "Ct_A_"
+
+output:
+  counts: "read_count"
+
+(base) sutripa@aryabhatt-SYS-2029P-C1R:~/rnaseq_pipeline$ cat config.yaml
+workdir: "/home/sutripa/rnaseq_pipeline"
+
+reference: "/home/sutripa/rnaseq_pipeline/MLA_UU774new1.fna"
+annotation: "/home/sutripa/rnaseq_pipeline/genomic.gff"
+adapters: "/home/sutripa/Tools/adapters.fasta.gz"
+
+samples:
+  - "6_A_"
+  - "Ct_A_"
+
+output:
+  counts: "read_count"
