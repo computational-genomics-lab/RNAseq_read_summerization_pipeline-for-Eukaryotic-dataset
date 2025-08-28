@@ -1,51 +1,83 @@
-# Modify the given path for input and output files at the required positions. The path /home/sutripa/heatShock/ is mentioned as an example.
+configfile: "config.yaml"
+
+# Load paths from config.yaml
+WORKDIR    = config["workdir"]
+REFERENCE  = config["reference"]     # fasta
+ANNOTATION = config["annotation"]    # gff or gtf
+ADAPTERS   = config["adapters"]
+SAMPLES    = config["samples"]       # list of sample prefixes
+READ_COUNT = f"{WORKDIR}/{config['output']['counts']}"
+
 rule all:
     input:
-        "/home/sutripa/heatShock/read_count"
-# Quality-trimming, filtering and adapter-trimming of the raw Illumina reads using bbduk
+        READ_COUNT
+
+# Quality trimming with BBDuk
 rule clean:
-# Provide raw illumina reads along with the path
     input:
-        rawfile1='/home/sutripa/heatShock/{sample}R1.fastq',
-        rawfile2='/home/sutripa/heatShock/{sample}R2.fastq'
+        rawfile1 = lambda wc: f"{WORKDIR}/{wc.sample}R1.fastq",
+        rawfile2 = lambda wc: f"{WORKDIR}/{wc.sample}R2.fastq"
     output:
-        clean1='/home/sutripa/heatShock/cln{sample}R1.fastq',
-        clean2='/home/sutripa/heatShock/cln{sample}R2.fastq'
-    shell:
-        "/home/sutripa/bbmap/bbduk.sh in1={input.rawfile1} in2={input.rawfile2} out1={output.clean1} out2={output.clean2} ftl=9 minlength=75 ref=/home/sutripa/heatShock/adapters.fasta.gz ktrim=r k=23 mink=11 hdist=1 tpe tbo"
-# Indexing of the reference genome using STAR 
-rule index_build:
-    input:
-# Provide the reference genome with the path
-        reference="/home/sutripa/heatShock/MLA_UU774new1.fna",
-# Provide the annotation of the reference genome with the path
-        an="/home/sutripa/heatShock/output.gtf"
-    output:
-        directory("starIndex")
-    shell:
-        "STAR --runThreadN 12 --runMode genomeGenerate --genomeDir {output} --genomeFastaFiles {input.reference} --sjdbGTFfile {input.an} --sjdbOverhang 149"
-# Alignment of the reads to the indexed reference genome using STAR aligner and sorting of the output BAM file according to the genomic coordinates
-rule map:
-# Input is the trimmed, filtered illumina reads and the indexed reference genome along with their path 
-    input:
-        fq1= '/home/sutripa/heatShock/cln{sample}R1.fastq',
-        fq2= '/home/sutripa/heatShock/cln{sample}R2.fastq',
-        indir= "starIndex"
-    output:
-        bamfile_sorted="/home/sutripa/heatShock/seed_{sample}Aligned.sortedByCoord.out.bam"
+        clean1 = f"{WORKDIR}/cln{{sample}}R1.fastq",
+        clean2 = f"{WORKDIR}/cln{{sample}}R2.fastq"
     params:
-        index_prefix= 'seed_{sample}'
+        adapters = ADAPTERS
     shell:
-        "STAR --runThreadN 12 --readFilesIn {input.fq1} {input.fq2} --genomeDir {input.indir} --outSAMtype BAM SortedByCoordinate --outFileNamePrefix {params.index_prefix} --outSAMunmapped Within"
-# Read summarization through counting mapped reads for genomic features (CDS for example) using featurecounts
+        "bbduk.sh in1={input.rawfile1} in2={input.rawfile2} "
+        "out1={output.clean1} out2={output.clean2} "
+        "ftl=9 minlength=75 ref={params.adapters} "
+        "ktrim=r k=23 mink=11 hdist=1 tpe tbo"
+
+# STAR genome index
+rule star_index:
+    input:
+        ref = REFERENCE,
+        gtf = ANNOTATION
+    output:
+        directory("star_index")
+    shell:
+        "STAR --runThreadN 8 "
+        "--runMode genomeGenerate "
+        "--genomeDir {output} "
+        "--genomeFastaFiles {input.ref} "
+        "--sjdbGTFfile {input.gtf} "
+        "--sjdbOverhang 100"
+
+# Alignment with STAR
+rule star_align:
+    input:
+        idx = "star_index",
+        fq1 = f"{WORKDIR}/cln{{sample}}R1.fastq",
+        fq2 = f"{WORKDIR}/cln{{sample}}R2.fastq"
+    output:
+        bam = f"{WORKDIR}/cln{{sample}}.bam"
+    params:
+        idx = "star_index"
+    shell:
+        "STAR --runThreadN 8 "
+        "--genomeDir {params.idx} "
+        "--readFilesIn {input.fq1} {input.fq2} "
+        "--outSAMtype BAM Unsorted "
+        "--outFileNamePrefix {wildcards.sample}_ "
+        "&& mv {wildcards.sample}_Aligned.out.bam {output.bam}"
+
+# Sorting BAM
+rule sorting:
+    input:
+        f"{WORKDIR}/cln{{sample}}.bam"
+    output:
+        f"{WORKDIR}/cln{{sample}}sorted.bam"
+    shell:
+        "samtools sort {input} -o {output}"
+
+# FeatureCounts for all samples
 rule featurecounts:
     input:
-# Provide genome annotation file with path
-# Provide genome annotation file with path
-        ann= "/home/sutripa/heatShock/output.gtf",
-# Raw read files for different conditions can be added in sample as = ['X1_Y1_', 'X2_Y2_']
-        bamfile_sorted= expand("/home/sutripa/heatShock/seed_{sample}Aligned.sortedByCoord.out.bam", sample= ['6_B_', '24_B_', 'Ct_B_']),
+        an = ANNOTATION,
+        sort = expand(f"{WORKDIR}/cln{{sample}}sorted.bam", sample=SAMPLES)
     output:
-        "/home/sutripa/heatShock/read_count"
+        READ_COUNT
     shell:
-        "featureCounts -p -T 4 -t CDS -g gene_id -a {input.ann} {input.bamfile_sorted} -o {output}"
+        "featureCounts -p -T 4 -t exon -g gene_id "
+        "-a {input.an} {input.sort} -o {output}"
+
