@@ -1,4 +1,4 @@
-configfile: "config.yaml"
+configfile: "eu_config.yaml"
 
 # Load paths from config.yaml
 WORKDIR    = config["workdir"]
@@ -77,7 +77,15 @@ rule featurecounts:
         sort = expand(f"{WORKDIR}/cln{{sample}}sorted.bam", sample=SAMPLES)
     output:
         READ_COUNT
+#    shell:
+#        "featureCounts -p -T 4 -t exon -g ID "
+#        "-a {input.an} {input.sort} -o {output}"
+    params:
+        feature_type = config["featurecounts"]["feature_type"],
+        attribute = config["featurecounts"]["attribute"],
+        format = config["featurecounts"]["format"],
+        paired = "-p" if config["featurecounts"]["paired"] else ""
     shell:
-        "featureCounts -p -T 4 -t exon -g gene_id "
+        "featureCounts {params.paired} -T 4 "
+        "-t {params.feature_type} -g {params.attribute} -F {params.format} "
         "-a {input.an} {input.sort} -o {output}"
-
