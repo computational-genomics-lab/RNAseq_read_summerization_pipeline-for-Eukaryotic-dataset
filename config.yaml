@@ -1,26 +1,25 @@
+# Directory for inputs and outputs
 workdir: "/home/sutripa/rnaseq_pipeline"
 
-reference: "/home/sutripa/rnaseq_pipeline/MLA_UU774new1.fna"
-annotation: "/home/sutripa/rnaseq_pipeline/genomic.gff"
-adapters: "/home/sutripa/Tools/adapters.fasta.gz"
-
+# Raw samples (prefix before R1/R2)
 samples:
   - "6_A_"
   - "Ct_A_"
 
-output:
-  counts: "read_count"
-
-(base) sutripa@aryabhatt-SYS-2029P-C1R:~/rnaseq_pipeline$ cat config.yaml
-workdir: "/home/sutripa/rnaseq_pipeline"
-
+# Reference genome and annotation
 reference: "/home/sutripa/rnaseq_pipeline/MLA_UU774new1.fna"
 annotation: "/home/sutripa/rnaseq_pipeline/genomic.gff"
-adapters: "/home/sutripa/Tools/adapters.fasta.gz"
 
-samples:
-  - "6_A_"
-  - "Ct_A_"
+# Adapter file
+adapters: "/home/sutripa/Tools/adapters.fasta.gz"
 
 output:
   counts: "read_count"
+
+featurecounts:
+  feature_type: "CDS"     # corresponds to -t
+  attribute: "ID"         # corresponds to -g
+  format: "GFF"           # corresponds to -F
+  paired: true            # corresponds to -p
+
+
